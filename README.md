@@ -1,2 +1,2 @@
-# DS-Net
-Rank 1st in the public leaderboard of SemanticKITTI Panoptic Segmentation (2020-11-16)
+# LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
+The repository of our work **"LiDAR-based Panoptic Segmentation via Dynamic Shifting Network"**. Codes will be released soon.
