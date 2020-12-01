@@ -1,0 +1,16 @@
+*.pyc
+fullres*
+__pycache__
+data/sequences
+*.pt
+local_train.sh
+capture
+capture/*
+json
+output
+*.so
+*.egg-info
+lib/pointgroup_ops/build
+lib/Pointnet2/
+*.pth
+

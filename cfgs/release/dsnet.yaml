@@ -1,0 +1,60 @@
+DATA_CONFIG:
+    DATASET_NAME: SemanticKitti
+    DATASET_PATH: ./data
+    NCLASS: 20
+    RETURN_REF: True
+    RETURN_INS_ID: True
+    DATALOADER:
+        VOXEL_TYPE: Spherical
+        GRID_SIZE: [480, 360, 32]
+        AUGMENTATION:
+            ROTATE: True
+            FLIP: True
+            TRANSFORM: True
+            TRANSFORM_STD: [0.1, 0.1, 0.1]
+            SCALE: True
+        IGNORE_LABEL: 255
+        CONVERT_IGNORE_LABEL: 0
+        FIXED_VOLUME_SPACE: True
+        MAX_VOLUME_SPACE: [50, 'PI', 1.5]
+        MIN_VOLUME_SPACE: [3, '-PI', -3]
+        CENTER_TYPE: Axis_center
+        DATA_DIM: 9
+        NUM_WORKER: 1 
+
+OPTIMIZE:
+    LR: 0.002
+    MAX_EPOCH: 50
+
+MODEL:
+    NAME: PolarOffsetSpconvPytorchMeanshift
+    MODEL_FN:
+        PT_POOLING: max
+        MAX_PT_PER_ENCODE: 256
+        PT_SELECTION: random
+        FEATURE_COMPRESSION: 16
+    VFE:
+        NAME: PointNet
+        OUT_CHANNEL: 64
+    BACKBONE:
+        NAME: Spconv_salsaNet_res_cfg
+        INIT_SIZE: 32
+    SEM_HEAD:
+        NAME: Spconv_sem_logits_head_cfg
+    INS_HEAD:
+        NAME: Spconv_ins_offset_concatxyz_threelayers_head_cfg
+        EMBEDDING_CHANNEL: 3
+    MEANSHIFT:
+        NAME: pytorch_meanshift
+        BANDWIDTH: [0.2, 1.7, 3.2]
+        ITERATION: 4
+        DATA_MODE: offset
+        SHIFT_MODE: matrix_flat_kernel_bandwidth_weight
+        DOWNSAMPLE_MODE: xyz
+        POINT_NUM_TH: 10000
+    SEM_LOSS: Lovasz_loss
+    INS_LOSS: offset_loss_regress_vec
+    POST_PROCESSING:
+        CLUSTER_ALGO: MeanShift_embedding_cluster
+        BANDWIDTH: 0.65
+        MERGE_FUNC: merge_ins_sem
