@@ -45,8 +45,7 @@ def build_dataloader(args, cfg, split='train', logger=None, no_shuffle=False, no
             cfg.DATA_CONFIG.DATASET_PATH + '/sequences/',
             imageset = split,
             return_ref = cfg.DATA_CONFIG.RETURN_REF,
-            return_ins = cfg.DATA_CONFIG.RETURN_INS_ID,
-            testfinetune = testfinetune
+            return_ins = cfg.DATA_CONFIG.RETURN_INS_ID
         )
         train_dataset=__all_voxel_dataset__[cfg.DATA_CONFIG.DATALOADER.VOXEL_TYPE](
             train_pt_dataset,

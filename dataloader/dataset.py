@@ -32,7 +32,7 @@ for i in sorted(list(semkittiyaml['learning_map'].keys()))[::-1]:
 # print(things_ids)
 
 class SemKITTI(data.Dataset):
-    def __init__(self, data_path, imageset = 'train', return_ref = False, return_ins = False, testfinetune = False):
+    def __init__(self, data_path, imageset = 'train', return_ref = False, return_ins = False):
         self.return_ref = return_ref
         self.return_ins = return_ins
         with open("semantic-kitti.yaml", 'r') as stream:
@@ -47,19 +47,11 @@ class SemKITTI(data.Dataset):
             split = semkittiyaml['split']['test']
         else:
             raise Exception('Split must be train/val/test')
-        if testfinetune and imageset == 'train':
-            split += [8]
-            print("Test Finetune is True and the current split is {}".format(split))
-        if testfinetune and imageset == 'test':
-            #split = [16,17,18,19]
-            print("Test Finetune is True and the current split is {}".format(split))
 
         self.im_idx = []
         for i_folder in split:
             self.im_idx += absoluteFilePaths('/'.join([data_path,str(i_folder).zfill(2),'velodyne']))
         self.im_idx.sort()
-
-        #self.im_idx = self.im_idx[730:750]
 
         self.things = ['car', 'truck', 'bicycle', 'motorcycle', 'bus', 'person', 'bicyclist', 'motorcyclist']
         self.stuff = ['road', 'sidewalk', 'parking', 'other-ground', 'building', 'vegetation', 'trunk', 'terrain', 'fence', 'pole', 'traffic-sign']
