@@ -1,3 +1,5 @@
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/lidar-based-panoptic-segmentation-via-dynamic/panoptic-segmentation-on-semantickitti)](https://paperswithcode.com/sota/panoptic-segmentation-on-semantickitti?p=lidar-based-panoptic-segmentation-via-dynamic)
+
 # LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
 [[paper]](https://arxiv.org/abs/2011.11964)
 
