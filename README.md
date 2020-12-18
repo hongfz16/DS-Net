@@ -60,7 +60,7 @@ Please download the [SemanticKITTI](http://www.semantic-kitti.org/dataset.html#o
 ## Getting Started
 The training pipeline of our DS-Net consists of three steps: 1) semantic segmentation training; 2) center regression training; 3) dynamic shifting training. The first two steps give us the backbone model. The last step gives our DS-Net. We provide the corresponding pretrained model of each step. The inferencing and training details are further explained in this section. 
 
-Note that our implementation only supports parallel training for now. We fix the batch size of each GPUs to `1`. In the first line of each script, you could choose the number of GPUs `${ngpu}` you wish to use for training or inferencing. In the second line, you could set the folder name `${tag}` and all the generated files will be put into `./output/${tag}`. All the provided pytorch distributed version of scripts are not tested due to the lack of proper environment. All the slurm version of scripts are tested and should work well. Should there be any problems, feel free to open an issue.
+Note that our implementation only supports parallel training for now. We fix the batch size of each GPUs to `1`. In the first line of each script, you could choose the number of GPUs `${ngpu}` you wish to use for training or inferencing. In the second line, you could set the folder name `${tag}` and all the generated files will be put into `./output/${tag}`. All the provided pytorch distributed version of scripts are not tested due to the lack of proper environment. All the slurm version of scripts are tested and should work well. Should there be any problem, feel free to open an issue.
 
 ### Pretrained Models
 If you wish to use our pretrained models, remember to create a new folder `pretrained_weight` and put all the downloaded models there.
@@ -83,7 +83,7 @@ The inferencing scripts of our DS-Net are in `./scripts/release/dsnet`. `val_*.s
 
 ### Training from Scratch
 #### 1. Semantic segmentation training
-The training codes and scripts for this step will be released soon. For now, please download the step 1 pretrained model using the above link.
+The training codes and scripts for this step will be released soon. For now, please download the step 1 pretrained model using the above link. Please note that the cylinder backbone used in our implementation is the original version of [Cylinder3D](https://arxiv.org/abs/2008.01550) instead of the [latest version](https://arxiv.org/abs/2011.10033).
 
 #### 2. Center regression training
 The training scripts of this step could be found in `./scripts/release/backbone/train_*.sh`. Before using the training scripts, please download the pretrained model of step 1 to folder `./pretrained_weight`. Feel free to play around with different parameter settings in `./cfgs/release/backbone.yaml`.
@@ -104,13 +104,6 @@ If you find our work useful in your research, please consider citing the followi
   title={LiDAR-based Panoptic Segmentation via Dynamic Shifting Network},
   author={Hong, Fangzhou and Zhou, Hui and Zhu, Xinge and Li, Hongsheng and Liu, Ziwei},
   journal={arXiv preprint arXiv:2011.11964},
-  year={2020}
-}
-
-@article{zhu2020cylindrical,
-  title={Cylindrical and Asymmetrical 3D Convolution Networks for LiDAR Segmentation},
-  author={Zhu, Xinge and Zhou, Hui and Wang, Tai and Hong, Fangzhou and Ma, Yuexin and Li, Wei and Li, Hongsheng and Lin, Dahua},
-  journal={arXiv preprint arXiv:2011.10033},
   year={2020}
 }
 ```
