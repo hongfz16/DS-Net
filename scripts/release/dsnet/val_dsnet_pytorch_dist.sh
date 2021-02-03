@@ -1,5 +1,5 @@
 ngpu=4
-tag=test_dsnet_slurm_dist
+tag=val_dsnet_pytorch_dist
 
 python -m torch.distributed.launch --nproc_per_node=${ngpu} cfg_train.py \
     --tcp_port 12345 \
