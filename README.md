@@ -11,6 +11,7 @@ This repository contains the author's implementation of the work "[LiDAR-based P
 For further information, please contact [Fangzhou Hong](mailto:fangzhouhong820@gmail.com).
 
 ## News
+- **2021-03 [NEW:partying_face:]** DS-Net is accepted to CVPR 2021!
 - **2020-12-01** Code release!
 - **2020-11-16** We achieve 1st place in [SemanticKITTI Panoptic Segmentation leaderboard](https://competitions.codalab.org/competitions/24025#results).
 
