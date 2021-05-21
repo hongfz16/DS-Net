@@ -3,6 +3,9 @@
 # LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
 [[paper]](https://arxiv.org/abs/2011.11964)
 
+## Hiring Information
+The SenseTime-LidarSegmentation is now hiring. If you are interested in internship, researcher and software engineer positions related to lidar segmentation or deep learning, please send me an email: [zhouhui@sensetime.com](mailto:zhouhui@sensetime.com).
+
 ## Overview
 This repository contains the author's implementation of the work "[LiDAR-based Panoptic Segmentation via Dynamic Shifting Network](https://arxiv.org/abs/2011.11964)".
 
