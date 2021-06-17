@@ -1,7 +1,7 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/lidar-based-panoptic-segmentation-via-dynamic/panoptic-segmentation-on-semantickitti)](https://paperswithcode.com/sota/panoptic-segmentation-on-semantickitti?p=lidar-based-panoptic-segmentation-via-dynamic)
 
 # LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
-[[paper]](https://arxiv.org/abs/2011.11964)
+[[pdf]](https://openaccess.thecvf.com/content/CVPR2021/papers/Hong_LiDAR-Based_Panoptic_Segmentation_via_Dynamic_Shifting_Network_CVPR_2021_paper.pdf)
 
 ## Hiring Information
 The SenseTime-LidarSegmentation is now hiring. If you are interested in internship, researcher and software engineer positions related to lidar segmentation or deep learning, please send me an email: [zhouhui@sensetime.com](mailto:zhouhui@sensetime.com).
@@ -104,11 +104,13 @@ Distributed under the MIT License. See `LICENSE` for more information.
 If you find our work useful in your research, please consider citing the following papers:
 
 ```
-@article{hong2020lidar,
-  title={LiDAR-based Panoptic Segmentation via Dynamic Shifting Network},
-  author={Hong, Fangzhou and Zhou, Hui and Zhu, Xinge and Li, Hongsheng and Liu, Ziwei},
-  journal={arXiv preprint arXiv:2011.11964},
-  year={2020}
+@InProceedings{Hong_2021_CVPR,
+    author    = {Hong, Fangzhou and Zhou, Hui and Zhu, Xinge and Li, Hongsheng and Liu, Ziwei},
+    title     = {LiDAR-Based Panoptic Segmentation via Dynamic Shifting Network},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2021},
+    pages     = {13090-13099}
 }
 ```
 
