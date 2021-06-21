@@ -1,3 +1,5 @@
+ipnb
+modules
 *.pyc
 fullres*
 __pycache__

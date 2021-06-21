@@ -3,6 +3,7 @@ import argparse
 import datetime
 import time
 import sys
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -148,6 +149,7 @@ def PolarOffsetMain(args, cfg):
     best_after_iou = -1 if 'best_after_iou' not in other_state else other_state['best_after_iou']
     global_iter = 0 if 'global_iter' not in other_state else other_state['global_iter']
     val_global_iter = 0 if 'val_global_iter' not in other_state else other_state ['val_global_iter']
+    best_tracking_loss = 10086 if 'best_tracking_loss' not in other_state else other_state ['best_tracking_loss']
 
     ### test
     if args.onlytest:
@@ -183,6 +185,10 @@ def PolarOffsetMain(args, cfg):
             with torch.no_grad():
                 ret_dict = model(inputs, is_test=True, before_merge_evaluator=before_merge_evaluator,
                                 after_merge_evaluator=after_merge_evaluator, require_cluster=True)
+                #########################
+                # with open('./ipnb/{}_matching_list.pkl'.format(i_iter), 'wb') as fd:
+                #     pickle.dump(ret_dict['matching_list'], fd)
+                #########################
                 if args.saveval:
                     common_utils.save_test_results(ret_dict, results_dir, inputs)
             if rank == 0:
@@ -227,20 +233,26 @@ def PolarOffsetMain(args, cfg):
             inputs['i_iter'] = i_iter
             inputs['rank'] = rank
             ret_dict = model(inputs)
+            
             if args.pretrained_ckpt is not None and not args.fix_semantic_instance: # training offset
                 if len(ret_dict['offset_loss_list']) > 0:
                     loss = sum(ret_dict['offset_loss_list'])
                 else:
                     loss = torch.tensor(0.0, requires_grad=True) #mock pbar
                     ret_dict['offset_loss_list'] = [loss] #mock writer
-            elif args.pretrained_ckpt is not None and args.fix_semantic_instance: # training dynamic shifting
+            elif args.pretrained_ckpt is not None and args.fix_semantic_instance and cfg.MODEL.NAME == 'PolarOffsetSpconvPytorchMeanshift': # training dynamic shifting
                 loss = sum(ret_dict['meanshift_loss'])
+            elif cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking'):
+                loss = sum(ret_dict['tracking_loss'])
+                #########################
+                with open('./ipnb/{}_matching_list.pkl'.format(i_iter), 'wb') as fd:
+                    pickle.dump(ret_dict['matching_list'], fd)
+                #########################
             else:
                 loss = ret_dict['loss']
             loss.backward()
             optimizer.step()
 
-            torch.cuda.empty_cache()
             if rank == 0:
                 try:
                     cur_lr = float(optimizer.lr)
@@ -257,6 +269,9 @@ def PolarOffsetMain(args, cfg):
                 writer_acc = 5
                 if 'meanshift_loss' in ret_dict:
                     writer.add_scalar('Train/05_DSLoss', sum(ret_dict['meanshift_loss']).item(), global_iter)
+                    writer_acc += 1
+                if 'tracking_loss' in ret_dict:
+                    writer.add_scalar('Train/06_TRLoss', sum(ret_dict['tracking_loss']).item(), global_iter)
                     writer_acc += 1
                 more_keys = []
                 for k, _ in ret_dict.items():
@@ -277,6 +292,7 @@ def PolarOffsetMain(args, cfg):
         min_points = 50
         before_merge_evaluator = init_eval(min_points=min_points)
         after_merge_evaluator = init_eval(min_points=min_points)
+        tracking_loss = 0
         if rank == 0:
             vbar = tqdm(total=len(val_dataset_loader), dynamic_ncols=True)
         for i_iter, inputs in enumerate(val_dataset_loader):
@@ -293,6 +309,9 @@ def PolarOffsetMain(args, cfg):
                 writer.add_scalar('Val/02_SemLoss', ret_dict['sem_loss'].item(), val_global_iter)
                 if sum(ret_dict['offset_loss_list']).item() > 0:
                     writer.add_scalar('Val/03_InsLoss', sum(ret_dict['offset_loss_list']).item(), val_global_iter)
+                if 'tracking_loss' in ret_dict:
+                    writer.add_scalar('Val/06_TRLoss', sum(ret_dict['tracking_loss']).item(), global_iter)
+                    tracking_loss += sum(ret_dict['tracking_loss']).item()
                 more_keys = []
                 for k, _ in ret_dict.items():
                     if k.find('summary') != -1:
@@ -303,6 +322,7 @@ def PolarOffsetMain(args, cfg):
                     ki += 4
                     writer.add_scalar('Val/{}_{}'.format(str(ki).zfill(2), k), ret_dict[k], val_global_iter)
                 val_global_iter += 1
+        tracking_loss /= len(val_dataset_loader)
         if dist_train:
             try:
                 before_merge_evaluator = common_utils.merge_evaluator(before_merge_evaluator, tmp_dir, prefix='before_')
@@ -324,9 +344,17 @@ def PolarOffsetMain(args, cfg):
                 'best_pq': best_pq,
                 'best_after_iou': best_after_iou,
                 'global_iter': global_iter,
-                'val_global_iter': val_global_iter
+                'val_global_iter': val_global_iter,
+                'best_tracking_loss': best_tracking_loss,
             }
             saved_flag = False
+            if best_tracking_loss > tracking_loss:
+                best_tracking_loss = tracking_loss
+                if not saved_flag:
+                    states = train_utils.checkpoint_state(model, optimizer, epoch, other_state)
+                    train_utils.save_checkpoint(states, os.path.join(ckpt_dir,
+                        'checkpoint_epoch_{}_{}.pth'.format(epoch, str(tracking_loss)[:5])))
+                    saved_flag = True
             if best_before_iou < before_merge_results['iou_mean']:
                 best_before_iou = before_merge_results['iou_mean']
                 if not saved_flag:
@@ -351,6 +379,7 @@ def PolarOffsetMain(args, cfg):
             logger.info("Current best before IoU: {}".format(best_before_iou))
             logger.info("Current best after IoU: {}".format(best_after_iou))
             logger.info("Current best after PQ: {}".format(best_pq))
+            logger.info("Current best tracking loss: {}".format(best_tracking_loss))
         if lr_scheduler != None:
             lr_scheduler.step(epoch) # new feature
 

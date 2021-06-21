@@ -392,7 +392,7 @@ class Spconv_ins_offset_concatxyz_threelayers_head_cfg(nn.Module):
         )
         self.offset_linear = nn.Linear(init_size, self.embedding_dim, bias=True)
 
-    def forward(self, fea, batch):
+    def forward(self, fea, batch, prefix=''):
         fea = self.conv1(fea)
         fea.features = self.act1(self.bn1(fea.features))
         fea = self.conv2(fea)
@@ -400,8 +400,8 @@ class Spconv_ins_offset_concatxyz_threelayers_head_cfg(nn.Module):
         fea = self.conv3(fea)
         fea.features = self.act3(self.bn3(fea.features))
 
-        grid_ind = batch['grid']
-        xyz = batch['pt_cart_xyz']
+        grid_ind = batch[prefix + 'grid']
+        xyz = batch[prefix + 'pt_cart_xyz']
         fea = fea.dense()
         fea = fea.permute(0, 2, 3, 4, 1)
         pt_ins_fea_list = []
@@ -411,6 +411,101 @@ class Spconv_ins_offset_concatxyz_threelayers_head_cfg(nn.Module):
         for batch_i, pt_ins_fea in enumerate(pt_ins_fea_list):
             pt_pred_offsets_list.append(self.offset_linear(self.offset(torch.cat([pt_ins_fea,torch.from_numpy(xyz[batch_i]).cuda()],dim=1))))
         return pt_pred_offsets_list, pt_ins_fea_list
+
+class Spconv_tracking_siamese_head_cfg(nn.Module):
+    def __init__(self, cfg):
+        super(Spconv_tracking_siamese_head_cfg, self).__init__()
+        init_size = cfg.MODEL.BACKBONE.INIT_SIZE
+        output_size = cfg.MODEL.TRACKING_HEAD.SIAMESE_INPUT_DIM
+
+        self.pt_fea_dim = 4 * init_size
+
+        self.conv1 = conv3x3(self.pt_fea_dim, self.pt_fea_dim, indice_key='tracking_head_conv1')
+        self.bn1 = nn.BatchNorm1d(self.pt_fea_dim)
+        self.act1 = nn.LeakyReLU()
+        self.conv2 = conv3x3(self.pt_fea_dim, 2 * init_size, indice_key='tracking_head_conv2')
+        self.bn2 = nn.BatchNorm1d(2 * init_size)
+        self.act2 = nn.LeakyReLU()
+        self.conv3 = conv3x3(2 * init_size, init_size, indice_key='tracking_head_conv3')
+        self.bn3 = nn.BatchNorm1d(init_size)
+        self.act3 = nn.LeakyReLU()
+
+        self.tracking_encoding = nn.Sequential(
+            nn.Linear(init_size+3, 64, bias=True),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Linear(64, output_size, bias=True),
+            nn.BatchNorm1d(output_size),
+            nn.ReLU(),
+            nn.Linear(output_size, output_size, bias=False),
+        )
+
+    def forward(self, fea, batch, prefix=''):
+        fea = self.conv1(fea)
+        fea.features = self.act1(self.bn1(fea.features))
+        fea = self.conv2(fea)
+        fea.features = self.act2(self.bn2(fea.features))
+        fea = self.conv3(fea)
+        fea.features = self.act3(self.bn3(fea.features))
+
+        grid_ind = batch[prefix + 'grid']
+        xyz = batch[prefix + 'pt_cart_xyz']
+        fea = fea.dense()
+        fea = fea.permute(0, 2, 3, 4, 1)
+        pt_ins_fea_list = []
+        for batch_i, grid_ind_i in enumerate(grid_ind):
+            pt_ins_fea_list.append(fea[batch_i, grid_ind[batch_i][:,0], grid_ind[batch_i][:,1], grid_ind[batch_i][:,2]])
+        pt_pred_tracking_encoding_list = []
+        for batch_i, pt_ins_fea in enumerate(pt_ins_fea_list):
+            pt_pred_tracking_encoding_list.append(self.tracking_encoding(torch.cat([pt_ins_fea,torch.from_numpy(xyz[batch_i]).cuda()],dim=1)))
+        return pt_pred_tracking_encoding_list
+
+class Spconv_tracking_head_cfg(nn.Module):
+    def __init__(self, cfg):
+        super(Spconv_tracking_head_cfg, self).__init__()
+        init_size = cfg.MODEL.BACKBONE.INIT_SIZE
+
+        self.pt_fea_dim = 4 * init_size
+
+        self.conv1 = conv3x3(self.pt_fea_dim, self.pt_fea_dim, indice_key='tracking_head_conv1')
+        self.bn1 = nn.BatchNorm1d(self.pt_fea_dim)
+        self.act1 = nn.LeakyReLU()
+        self.conv2 = conv3x3(self.pt_fea_dim, 2 * init_size, indice_key='tracking_head_conv2')
+        self.bn2 = nn.BatchNorm1d(2 * init_size)
+        self.act2 = nn.LeakyReLU()
+        self.conv3 = conv3x3(2 * init_size, init_size, indice_key='tracking_head_conv3')
+        self.bn3 = nn.BatchNorm1d(init_size)
+        self.act3 = nn.LeakyReLU()
+
+        self.tracking_encoding = nn.Sequential(
+            nn.Linear(init_size+3, init_size, bias=True),
+            nn.BatchNorm1d(init_size),
+            nn.ReLU(),
+            nn.Linear(init_size, init_size, bias=True),
+            nn.BatchNorm1d(init_size),
+            nn.ReLU(),
+            nn.Linear(init_size, init_size, bias=False),
+        )
+
+    def forward(self, fea, batch, prefix=''):
+        fea = self.conv1(fea)
+        fea.features = self.act1(self.bn1(fea.features))
+        fea = self.conv2(fea)
+        fea.features = self.act2(self.bn2(fea.features))
+        fea = self.conv3(fea)
+        fea.features = self.act3(self.bn3(fea.features))
+
+        grid_ind = batch[prefix + 'grid']
+        xyz = batch[prefix + 'pt_cart_xyz']
+        fea = fea.dense()
+        fea = fea.permute(0, 2, 3, 4, 1)
+        pt_ins_fea_list = []
+        for batch_i, grid_ind_i in enumerate(grid_ind):
+            pt_ins_fea_list.append(fea[batch_i, grid_ind[batch_i][:,0], grid_ind[batch_i][:,1], grid_ind[batch_i][:,2]])
+        pt_pred_tracking_encoding_list = []
+        for batch_i, pt_ins_fea in enumerate(pt_ins_fea_list):
+            pt_pred_tracking_encoding_list.append(self.tracking_encoding(torch.cat([pt_ins_fea,torch.from_numpy(xyz[batch_i]).cuda()],dim=1)))
+        return pt_pred_tracking_encoding_list
 
 class Spconv_alsaNet_res(nn.Module):
     def __init__(self,

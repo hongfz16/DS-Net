@@ -1,9 +1,9 @@
-ngpu=4
-batch_size=4
-tag=val_dsnet_slurm_dist
+ngpu=1
+batch_size=${ngpu}
+tag=val_dsnet_tracking_slurm_dist
 
 srun -p dsta \
-    --job-name=val_dsnet \
+    --job-name=val_dsnet_tracking \
     --gres=gpu:${ngpu} \
     --ntasks=${ngpu} \
     --ntasks-per-node=${ngpu} \
@@ -12,8 +12,8 @@ srun -p dsta \
     python -u cfg_train.py \
         --tcp_port 12346 \
         --batch_size ${batch_size} \
-        --config cfgs/release/dsnet.yaml \
-        --pretrained_ckpt pretrained_weight/dsnet_pretrain_pq_0.577.pth \
+        --config cfgs/release/dsnet_tracking.yaml \
+        --pretrained_ckpt ./output/train_dsnet_tracking_slurm_dist/ckpt/checkpoint_epoch_2_25.06.pth \
         --tag ${tag} \
         --launcher slurm \
         --fix_semantic_instance \

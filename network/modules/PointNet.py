@@ -24,3 +24,19 @@ class PointNet(nn.Module):
 
     def forward(self, x):
         return self.PPmodel(x)
+
+class Siamese_FC(nn.Module):
+    def __init__(self, cfg):
+        super(Siamese_FC, self).__init__()
+        input_dim = cfg.MODEL.TRACKING_HEAD.SIAMESE_INPUT_DIM
+        output_dim = cfg.MODEL.TRACKING_HEAD.SIAMESE_OUTPUT_DIM
+
+        self.fc = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, output_dim)
+        )
+    def forward(self, x):
+        return self.fc(x)

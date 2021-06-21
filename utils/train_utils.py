@@ -23,8 +23,11 @@ def save_checkpoint(state, filename):
 
 def find_match_key(key, dic):
     # key: pretrained model key
+    for _k in dic.keys():
+        if key == _k:
+            return _k
     key = '.'.join(key.split('.')[1:])
-    if key.split('.')[0] == 'fea_compression':
+    if key.split('.')[0] in ['fea_compression']:
         split_point = 0
     else:
         split_point = 1
@@ -43,7 +46,7 @@ def load_pretrained_model(model, filename, to_cpu=False, logger=None):
     checkpoint = torch.load(filename, map_location=loc_type)
     if checkpoint.get('model_state', None) is not None:
         checkpoint = checkpoint.get('model_state')
-
+    
     update_model_state = {}
     for key, val in checkpoint.items():
         match_key = find_match_key(key, model.state_dict())
