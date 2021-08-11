@@ -3,8 +3,8 @@
 # LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
 [[pdf]](https://openaccess.thecvf.com/content/CVPR2021/papers/Hong_LiDAR-Based_Panoptic_Segmentation_via_Dynamic_Shifting_Network_CVPR_2021_paper.pdf)
 
-## Hiring Information
-The SenseTime-LidarSegmentation is now hiring. If you are interested in internship, researcher and software engineer positions related to lidar segmentation or deep learning, please send me an email: [zhouhui@sensetime.com](mailto:zhouhui@sensetime.com).
+<!-- ## Hiring Information
+The SenseTime-LidarSegmentation is now hiring. If you are interested in internship, researcher and software engineer positions related to lidar segmentation or deep learning, please send me an email: [zhouhui@sensetime.com](mailto:zhouhui@sensetime.com). -->
 
 ## Overview
 This repository contains the author's implementation of the work "[LiDAR-based Panoptic Segmentation via Dynamic Shifting Network](https://arxiv.org/abs/2011.11964)".
