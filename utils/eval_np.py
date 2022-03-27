@@ -27,6 +27,8 @@ class PanopticEval:
     self.min_points = min_points  # smallest number of points to consider instances in gt
     self.eps = 1e-15
 
+    self.original_results = []
+
   def num_classes(self):
     return self.n_classes
 

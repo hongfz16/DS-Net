@@ -159,7 +159,10 @@ def PolarOffsetMain(args, cfg):
             vbar = tqdm(total=len(test_dataset_loader), dynamic_ncols=True)
         for i_iter, inputs in enumerate(test_dataset_loader):
             with torch.no_grad():
-                ret_dict = model(inputs, is_test=True, require_cluster=True, require_merge=True)
+                if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+                    ret_dict = model(inputs, is_test=True, merge_evaluator_list=None, merge_evaluator_window_k_list=None, require_cluster=True)
+                else:
+                    ret_dict = model(inputs, is_test=True, require_cluster=True, require_merge=True)
                 common_utils.save_test_results(ret_dict, results_dir, inputs)
             if rank == 0:
                 vbar.set_postfix({'fname':'/'.join(inputs['pcd_fname'][0].split('/')[-3:])})
@@ -174,17 +177,27 @@ def PolarOffsetMain(args, cfg):
         logger.info('----EPOCH {} Evaluating----'.format(epoch))
         model.eval()
         min_points = 50 # according to SemanticKITTI official rule
-        before_merge_evaluator = init_eval(min_points=min_points)
-        after_merge_evaluator = init_eval(min_points=min_points)
-
+        if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+            merge_evaluator_list = []
+            merge_evaluator_window_k_list = []
+            for k in [1, 5, 10, 15]:
+                merge_evaluator_list.append(init_eval(min_points))
+                merge_evaluator_window_k_list.append(k)
+        else:
+            before_merge_evaluator = init_eval(min_points=min_points)
+            after_merge_evaluator = init_eval(min_points=min_points)
         if rank == 0:
             vbar = tqdm(total=len(val_dataset_loader), dynamic_ncols=True)
         for i_iter, inputs in enumerate(val_dataset_loader):
             inputs['i_iter'] = i_iter
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             with torch.no_grad():
-                ret_dict = model(inputs, is_test=True, before_merge_evaluator=before_merge_evaluator,
-                                after_merge_evaluator=after_merge_evaluator, require_cluster=True)
+                if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+                    ret_dict = model(inputs, is_test=True, merge_evaluator_list=merge_evaluator_list,
+                                     merge_evaluator_window_k_list=merge_evaluator_window_k_list, require_cluster=True)
+                else:
+                    ret_dict = model(inputs, is_test=True, before_merge_evaluator=before_merge_evaluator,
+                                    after_merge_evaluator=after_merge_evaluator, require_cluster=True)
                 #########################
                 # with open('./ipnb/{}_matching_list.pkl'.format(i_iter), 'wb') as fd:
                 #     pickle.dump(ret_dict['matching_list'], fd)
@@ -197,18 +210,26 @@ def PolarOffsetMain(args, cfg):
                                   'ins_num': -1 if 'ins_num' not in ret_dict else ret_dict['ins_num']})
                 vbar.update(1)
         if dist_train:
-            before_merge_evaluator = common_utils.merge_evaluator(before_merge_evaluator, tmp_dir)
-            dist.barrier()
-            after_merge_evaluator = common_utils.merge_evaluator(after_merge_evaluator, tmp_dir)
+            if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+                pass
+            else:
+                before_merge_evaluator = common_utils.merge_evaluator(before_merge_evaluator, tmp_dir)
+                dist.barrier()
+                after_merge_evaluator = common_utils.merge_evaluator(after_merge_evaluator, tmp_dir)
 
         if rank == 0:
             vbar.close()
         if rank == 0:
             ## print results
-            logger.info("Before Merge Semantic Scores")
-            before_merge_results = printResults(before_merge_evaluator, logger=logger, sem_only=True)
-            logger.info("After Merge Panoptic Scores")
-            after_merge_results = printResults(after_merge_evaluator, logger=logger)
+            if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+                for evaluate, window_k in zip(merge_evaluator_list, merge_evaluator_window_k_list):
+                    logger.info("Current Window K: {}".format(window_k))
+                    printResults(evaluate, logger=logger)
+            else:
+                logger.info("Before Merge Semantic Scores")
+                before_merge_results = printResults(before_merge_evaluator, logger=logger, sem_only=True)
+                logger.info("After Merge Panoptic Scores")
+                after_merge_results = printResults(after_merge_evaluator, logger=logger)
 
         logger.info("----Evaluating Finished----")
         return
@@ -226,7 +247,7 @@ def PolarOffsetMain(args, cfg):
         if rank == 0:
             pbar = tqdm(total=len(train_dataset_loader), dynamic_ncols=True)
         for i_iter, inputs in enumerate(train_dataset_loader):
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             torch.autograd.set_detect_anomaly(True)
             model.train()
             optimizer.zero_grad()
@@ -235,18 +256,20 @@ def PolarOffsetMain(args, cfg):
             ret_dict = model(inputs)
             
             if args.pretrained_ckpt is not None and not args.fix_semantic_instance: # training offset
-                if len(ret_dict['offset_loss_list']) > 0:
+                if args.nofix:
+                    loss = ret_dict['loss']
+                elif len(ret_dict['offset_loss_list']) > 0:
                     loss = sum(ret_dict['offset_loss_list'])
                 else:
                     loss = torch.tensor(0.0, requires_grad=True) #mock pbar
                     ret_dict['offset_loss_list'] = [loss] #mock writer
             elif args.pretrained_ckpt is not None and args.fix_semantic_instance and cfg.MODEL.NAME == 'PolarOffsetSpconvPytorchMeanshift': # training dynamic shifting
                 loss = sum(ret_dict['meanshift_loss'])
-            elif cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking'):
+            elif cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
                 loss = sum(ret_dict['tracking_loss'])
                 #########################
-                with open('./ipnb/{}_matching_list.pkl'.format(i_iter), 'wb') as fd:
-                    pickle.dump(ret_dict['matching_list'], fd)
+                # with open('./ipnb/{}_matching_list.pkl'.format(i_iter), 'wb') as fd:
+                #     pickle.dump(ret_dict['matching_list'], fd)
                 #########################
             else:
                 loss = ret_dict['loss']
@@ -263,7 +286,7 @@ def PolarOffsetMain(args, cfg):
                 pbar.update(1)
                 writer.add_scalar('Train/01_Loss', ret_dict['loss'].item(), global_iter)
                 writer.add_scalar('Train/02_SemLoss', ret_dict['sem_loss'].item(), global_iter)
-                if sum(ret_dict['offset_loss_list']).item() > 0:
+                if 'offset_loss_list' in ret_dict and sum(ret_dict['offset_loss_list']).item() > 0:
                     writer.add_scalar('Train/03_InsLoss', sum(ret_dict['offset_loss_list']).item(), global_iter)
                 writer.add_scalar('Train/04_LR', cur_lr, global_iter)
                 writer_acc = 5
@@ -296,18 +319,22 @@ def PolarOffsetMain(args, cfg):
         if rank == 0:
             vbar = tqdm(total=len(val_dataset_loader), dynamic_ncols=True)
         for i_iter, inputs in enumerate(val_dataset_loader):
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             inputs['i_iter'] = i_iter
             inputs['rank'] = rank
             with torch.no_grad():
-                ret_dict = model(inputs, is_test=True, before_merge_evaluator=before_merge_evaluator,
-                                after_merge_evaluator=after_merge_evaluator, require_cluster=True)
+                if cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
+                    ret_dict = model(inputs, is_test=True, merge_evaluator_list=None,
+                                     merge_evaluator_window_k_list=None, require_cluster=True)
+                else:
+                    ret_dict = model(inputs, is_test=True, before_merge_evaluator=before_merge_evaluator,
+                                     after_merge_evaluator=after_merge_evaluator, require_cluster=True)
             if rank == 0:
                 vbar.set_postfix({'loss': ret_dict['loss'].item()})
                 vbar.update(1)
                 writer.add_scalar('Val/01_Loss', ret_dict['loss'].item(), val_global_iter)
                 writer.add_scalar('Val/02_SemLoss', ret_dict['sem_loss'].item(), val_global_iter)
-                if sum(ret_dict['offset_loss_list']).item() > 0:
+                if 'offset_loss_list' in ret_dict and  sum(ret_dict['offset_loss_list']).item() > 0:
                     writer.add_scalar('Val/03_InsLoss', sum(ret_dict['offset_loss_list']).item(), val_global_iter)
                 if 'tracking_loss' in ret_dict:
                     writer.add_scalar('Val/06_TRLoss', sum(ret_dict['tracking_loss']).item(), global_iter)
@@ -348,7 +375,7 @@ def PolarOffsetMain(args, cfg):
                 'best_tracking_loss': best_tracking_loss,
             }
             saved_flag = False
-            if best_tracking_loss > tracking_loss:
+            if best_tracking_loss > tracking_loss and cfg.MODEL.NAME.startswith('PolarOffsetSpconvPytorchMeanshiftTracking') or cfg.MODEL.NAME.startswith('PolarOffsetSpconvTracking'):
                 best_tracking_loss = tracking_loss
                 if not saved_flag:
                     states = train_utils.checkpoint_state(model, optimizer, epoch, other_state)

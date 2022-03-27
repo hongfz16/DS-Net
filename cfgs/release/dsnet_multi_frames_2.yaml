@@ -1,11 +1,12 @@
 DATA_CONFIG:
-    DATASET_NAME: SemanticKitti_tracking
+    DATASET_NAME: SemanticKitti_multi_frames
     DATASET_PATH: ./data
     NCLASS: 20
     RETURN_REF: True
     RETURN_INS_ID: True
+    N_FRAMES: 2
     DATALOADER:
-        VOXEL_TYPE: Spherical_tracking
+        VOXEL_TYPE: Spherical_multi_frames
         GRID_SIZE: [480, 360, 32]
         AUGMENTATION:
             ROTATE: True
@@ -27,7 +28,7 @@ OPTIMIZE:
     MAX_EPOCH: 50
 
 MODEL:
-    NAME: PolarOffsetSpconvPytorchMeanshiftTrackingSiamese
+    NAME: PolarOffsetSpconvPytorchMeanshift
     MODEL_FN:
         PT_POOLING: max
         MAX_PT_PER_ENCODE: 256
@@ -44,18 +45,14 @@ MODEL:
     INS_HEAD:
         NAME: Spconv_ins_offset_concatxyz_threelayers_head_cfg
         EMBEDDING_CHANNEL: 3
-    TRACKING_HEAD:
-        NAME: Spconv_tracking_siamese_head_cfg
-        SIAMESE_INPUT_DIM: 128
-        SIAMESE_OUTPUT_DIM: 1024
     MEANSHIFT:
         NAME: pytorch_meanshift
-        BANDWIDTH: [0.2, 1.7, 3.2]
+        BANDWIDTH: [0.2, 1.8, 3.4]
         ITERATION: 4
         DATA_MODE: offset
         SHIFT_MODE: matrix_flat_kernel_bandwidth_weight
         DOWNSAMPLE_MODE: xyz
-        POINT_NUM_TH: 10000
+        POINT_NUM_TH: 20000
     SEM_LOSS: Lovasz_loss
     INS_LOSS: offset_loss_regress_vec
     POST_PROCESSING:

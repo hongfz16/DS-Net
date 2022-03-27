@@ -6,6 +6,7 @@ import os
 
 from .dataset import SemKITTI, spherical_dataset, collate_fn_BEV, collate_fn_BEV_test
 from .dataset import SemKITTI_tracking, spherical_dataset_tracking, collate_fn_BEV_tracking
+from .dataset import SemKITTI_multi_frames, spherical_dataset_multi_frames, collate_fn_BEV_multi_frames
 from utils import common_utils
 
 from utils.config import global_args
@@ -13,6 +14,7 @@ from utils.config import global_args
 __all_voxel_dataset__ =  {
     'Spherical': spherical_dataset,
     'Spherical_tracking': spherical_dataset_tracking,
+    'Spherical_multi_frames': spherical_dataset_multi_frames,
 }
 
 class DistributedSampler(_DistributedSampler):
@@ -110,6 +112,28 @@ def build_dataloader(args, cfg, split='train', logger=None, no_shuffle=False, no
                 rotate_aug = cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.ROTATE and is_training and (not no_aug),
                 fixed_volume_space = cfg.DATA_CONFIG.DATALOADER.FIXED_VOLUME_SPACE,
             )
+    elif cfg.DATA_CONFIG.DATASET_NAME == 'SemanticKitti_multi_frames':
+        choosen_collate_fn = collate_fn_BEV_multi_frames
+        train_pt_dataset = SemKITTI_multi_frames(
+            cfg.DATA_CONFIG.DATASET_PATH + '/sequences/',
+            imageset = split,
+            return_ref = cfg.DATA_CONFIG.RETURN_REF,
+            return_ins = cfg.DATA_CONFIG.RETURN_INS_ID,
+            n_frames = cfg.DATA_CONFIG.N_FRAMES,
+        )
+        train_dataset=__all_voxel_dataset__[cfg.DATA_CONFIG.DATALOADER.VOXEL_TYPE](
+            train_pt_dataset,
+            grid_size = cfg.DATA_CONFIG.DATALOADER.GRID_SIZE,
+            flip_aug = cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.FLIP and is_training and (not no_aug),
+            scale_aug = cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.SCALE and is_training and (not no_aug),
+            transform_aug= cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.TRANSFORM and is_training and (not no_aug),
+            trans_std= cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.TRANSFORM_STD,
+            min_rad = -np.pi / 4,
+            max_rad = np.pi / 4,
+            ignore_label = cfg.DATA_CONFIG.DATALOADER.CONVERT_IGNORE_LABEL,
+            rotate_aug = cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.ROTATE and is_training and (not no_aug),
+            fixed_volume_space = cfg.DATA_CONFIG.DATALOADER.FIXED_VOLUME_SPACE,
+        )
         if logger is not None:
             logger.info("Flip Augmentation: {}".format(cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.FLIP and is_training and (not no_aug)))
             logger.info("Scale Augmentation: {}".format(cfg.DATA_CONFIG.DATALOADER.AUGMENTATION.SCALE and is_training and (not no_aug)))

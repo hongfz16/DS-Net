@@ -122,18 +122,51 @@ class PytorchMeanshift(nn.Module):
     def down_sample(self, data):
         ratio = (float(self.point_num_th) / data.shape[0]) if data.shape[0] != 0 else 10086
         if ratio >= 1.0:
-            return None
-        index = fps(data, torch.zeros(data.shape[0]).cuda().long(), ratio=ratio, random_start=False)
-        return index
+            return None, None
+        # mid_x = data[:, 0].mean()
+        # mid_y = data[:, 1].mean()
+        # inds = [
+        #     (data[:, 0] >= mid_x) & (data[:, 1] >= mid_y),
+        #     (data[:, 0] >= mid_x) & (data[:, 1] <  mid_y),
+        #     (data[:, 0] <  mid_x) & (data[:, 1] >= mid_y),
+        #     (data[:, 0] <  mid_x) & (data[:, 1] <  mid_y),
+        # ]
+        # for i in inds:
+            # cur_i = fps(data[i], torch.zeros(data[i].shape[0]).cuda().long(), ratio=ratio, random_start=False)
+            # cur_index_torch = torch.zeros(data[i].shape[0]).cuda().long()
+            # cur_index_torch[cur_i] = 1
+            # index_torch[i] = cur_index_torch
+
+        # step = data.shape[0] // 4
+        # split = [i * step for i in range(5)]
+        # split[-1] = data.shape[0]
+        # index_torch = torch.zeros(data.shape[0]).cuda().long()
+        # for i in range(4):
+        #     cur_i = fps(data[split[i]:split[i+1]], torch.zeros(data[split[i]:split[i+1]].shape[0]).cuda().long(), ratio=ratio, random_start=False)
+        #     index_torch[cur_i + i*step] = 1
+
+        index_torch = fps(data, torch.zeros(data.shape[0]).cuda().long(), ratio=ratio, random_start=False)
+        # index_torch = index_torch == 1
+        index = index_torch.detach().cpu().numpy()
+
+        # index = np.random.choice(data.shape[0], int(ratio * data.shape[0]))
+        # index_torch = torch.from_numpy(index).cuda()
+        return index, index_torch
 
     def forward(self, xyz_ori_, embedding_ori_, valid_, batch, need_cluster=False):
+        # import pdb; pdb.set_trace()
+        valid_ = [v!=0 for v in valid_]
         xyz_ = [xyz_ori[valid] for xyz_ori, valid in zip(xyz_ori_, valid_)]
+        xyz_torch_ = [torch.from_numpy(xyz).cuda() for xyz in xyz_]
         embedding_ = [embedding_ori[valid] for embedding_ori, valid in zip(embedding_ori_, valid_)]
         if self.down_sample_mode == 'xyz':
-            index_ = [self.down_sample(torch.from_numpy(xyz).cuda()) for xyz in xyz_]
+            all_index_ = [self.down_sample(xyz) for xyz in xyz_torch_]
+            index_np_ = [i[0] for i in all_index_]
+            index_ = [i[1] for i in all_index_]
         else:
             raise NotImplementedError
-        sampled_xyz_ = [(xyz[index.detach().cpu().numpy()] if index is not None else xyz) for xyz, index in zip(xyz_, index_)]
+        # sampled_xyz_ = [(xyz[index.detach().cpu().numpy()] if index is not None else xyz) for xyz, index in zip(xyz_, index_)]
+        sampled_xyz_ = [(xyz[index] if index is not None else xyz) for xyz, index in zip(xyz_, index_np_)]
         sampled_embedding_ = [(embedding[index] if index is not None else embedding) for embedding, index in zip(embedding_, index_)]
 
         safe_vis(xyz_ori_[0], batch['pt_ins_labels'][0].reshape(-1), ignore_zero=True)

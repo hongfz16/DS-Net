@@ -1,14 +1,12 @@
+from .model_zoo import PolarSpconv
 from .model_zoo import PolarOffsetSpconv, PolarOffsetSpconvPytorchMeanshift
-from .model_zoo import PolarOffsetSpconvPytorchMeanshiftTracking
-from .model_zoo import PolarOffsetSpconvPytorchMeanshiftTrackingSiamese
-from .model_zoo import PolarOffsetSpconvPytorchMeanshiftTrackingSiameseWithGeoClue
+from .model_zoo import PolarOffsetSpconvPytorchMeanshiftTrackingMultiFrames
 
 __all__ = {
+    'PolarSpconv': PolarSpconv,
     'PolarOffsetSpconv': PolarOffsetSpconv,
     'PolarOffsetSpconvPytorchMeanshift': PolarOffsetSpconvPytorchMeanshift,
-    'PolarOffsetSpconvPytorchMeanshiftTracking': PolarOffsetSpconvPytorchMeanshiftTracking,
-    'PolarOffsetSpconvPytorchMeanshiftTrackingSiamese': PolarOffsetSpconvPytorchMeanshiftTrackingSiamese,
-    'PolarOffsetSpconvPytorchMeanshiftTrackingSiameseWithGeoClue': PolarOffsetSpconvPytorchMeanshiftTrackingSiameseWithGeoClue,
+    'PolarOffsetSpconvPytorchMeanshiftTrackingMultiFrames': PolarOffsetSpconvPytorchMeanshiftTrackingMultiFrames,
 }
 
 def build_network(cfg):

@@ -349,6 +349,73 @@ class Spconv_salsaNet_res_cfg(nn.Module):
 
         return up0e, up0e
 
+class Spconv_salsaNet_res_merge_cfg(nn.Module):
+    def __init__(self, cfg):
+        super(Spconv_salsaNet_res_merge_cfg, self).__init__()
+
+        output_shape = cfg.DATA_CONFIG.DATALOADER.GRID_SIZE
+        if 'FEATURE_COMPRESSION' in cfg.MODEL.MODEL_FN:
+            num_input_features = cfg.MODEL.MODEL_FN.FEATURE_COMPRESSION
+        else:
+            num_input_features = cfg.DATA_CONFIG.DATALOADER.GRID_SIZE[2]
+        nclasses = cfg.DATA_CONFIG.NCLASS
+        n_height = cfg.DATA_CONFIG.DATALOADER.GRID_SIZE[2]
+        init_size = cfg.MODEL.BACKBONE.INIT_SIZE
+
+        self.nclasses = nclasses
+        self.nheight = n_height
+        self.strict = False
+
+        sparse_shape = np.array(output_shape)
+        # sparse_shape[0] = 11
+        self.sparse_shape = sparse_shape
+
+        self.downCntx = ResContextBlock(num_input_features, init_size, indice_key="pre")
+        # self.resBlock1 = ResBlock(init_size, init_size, 0.2, pooling=True, height_pooling=True, indice_key="down1")
+        self.resBlock2 = ResBlock(init_size, 2 * init_size, 0.2, height_pooling=True, indice_key="down2")
+        self.resBlock3 = ResBlock(2 * init_size, 4 * init_size, 0.2, height_pooling=True, indice_key="down3")
+        self.resBlock4 = ResBlock(4 * init_size, 8 * init_size, 0.2, pooling=True, height_pooling=False, indice_key="down4")
+        self.resBlock5 = ResBlock(8 * init_size, 16 * init_size, 0.2, pooling=True, height_pooling=False, indice_key="down5")
+        # self.resBlock6 = ResBlock(16 * init_size, 16 * init_size, 0.2, pooling=False, height_pooling=False, indice_key="down6")
+
+
+        # self.ReconNet = ReconBlock(16 * init_size, 16 * init_size, indice_key="recon")
+
+        self.upBlock0 = UpBlock(16 * init_size, 16 * init_size, indice_key="up0", up_key="down5")
+        self.upBlock1 = UpBlock(16 * init_size, 8 * init_size, indice_key="up1", up_key="down4")
+        self.upBlock2 = UpBlock(8 * init_size, 4 * init_size, indice_key="up2", up_key="down3")
+        self.upBlock3 = UpBlock(4 * init_size, 2 * init_size, indice_key="up3", up_key="down2")
+        # self.upBlock4 = UpBlock(4 * init_size, 2 * init_size, indice_key="up4", up_key="down2")
+        # self.upBlock5 = UpBlock(2 * init_size, init_size, indice_key="up5", up_key="down1")
+
+        self.ReconNet = ReconBlock(2*init_size, 2*init_size, indice_key="recon")
+
+    def forward(self, voxel_features, coors, batch_size):
+        # x = x.contiguous()
+        coors = coors.int()
+        ret = spconv.SparseConvTensor(voxel_features, coors, self.sparse_shape,
+                                      batch_size)
+        ret = self.downCntx(ret)
+        # down0c, down0b = self.resBlock1(ret)
+        down1c, down1b = self.resBlock2(ret)
+        down2c, down2b = self.resBlock3(down1c)
+        down3c, down3b = self.resBlock4(down2c)
+        down4c, down4b = self.resBlock5(down3c)
+        # down5b = self.resBlock6(down4c)
+
+        # down6b = self.ReconNet(down5b)
+
+        up4e = self.upBlock0(down4c, down4b)
+        up3e = self.upBlock1(up4e, down3b)
+        up2e = self.upBlock2(up3e, down2b)
+        up1e = self.upBlock3(up2e, down1b)
+
+        up0e = self.ReconNet(up1e)
+
+        up0e.features = torch.cat((up0e.features, up1e.features), 1)
+
+        return up0e, up0e
+
 class Spconv_sem_logits_head_cfg(nn.Module):
     def __init__(self, cfg):
         super(Spconv_sem_logits_head_cfg, self).__init__()

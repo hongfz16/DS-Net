@@ -14,6 +14,7 @@ import pickle
 from torch.utils import data
 from tqdm import tqdm
 from scipy import stats as s
+from os.path import join
 
 # load Semantic KITTI class info
 with open("semantic-kitti.yaml", 'r') as stream:
@@ -48,10 +49,24 @@ class SemKITTI(data.Dataset):
         else:
             raise Exception('Split must be train/val/test')
 
+        self.sequences = sorted(split)
+        self.data_path = data_path
         self.im_idx = []
         for i_folder in split:
             self.im_idx += absoluteFilePaths('/'.join([data_path,str(i_folder).zfill(2),'velodyne']))
         self.im_idx.sort()
+        self.load_calib_poses()
+        self.im_idx_ind = []
+        for im in self.im_idx:
+            frame_path = im.split('/')
+            frame_id = im.split('/')[-1].split('.')[0]
+            assert len(frame_id) == 6
+            frame_id = int(frame_id)
+            
+            seq = frame_path[-3]
+            seq_ind = self.seq2ind[seq]
+            
+            self.im_idx_ind.append((seq_ind, frame_id))
 
         self.things = ['car', 'truck', 'bicycle', 'motorcycle', 'bus', 'person', 'bicyclist', 'motorcyclist']
         self.stuff = ['road', 'sidewalk', 'parking', 'other-ground', 'building', 'vegetation', 'trunk', 'terrain', 'fence', 'pole', 'traffic-sign']
@@ -59,6 +74,88 @@ class SemKITTI(data.Dataset):
         for i in sorted(list(semkittiyaml['labels'].keys())):
             if SemKITTI_label_name[semkittiyaml['learning_map'][i]] in self.things:
                 self.things_ids.append(i)
+
+    def load_calib_poses(self):
+        """
+        load calib poses and times.
+        """
+
+        ###########
+        # Load data
+        ###########
+
+        self.calibrations = []
+        self.times = []
+        self.poses = []
+        self.seq2ind = {}
+
+        for i, seq in enumerate(self.sequences):
+            self.seq2ind[str(seq).zfill(2)] = i
+
+            seq_folder = join(self.data_path, str(seq).zfill(2))
+
+            # Read Calib
+            self.calibrations.append(self.parse_calibration(join(seq_folder, "calib.txt")))
+
+            # Read times
+            self.times.append(np.loadtxt(join(seq_folder, 'times.txt'), dtype=np.float32))
+
+            # Read poses
+            poses_f64 = self.parse_poses(join(seq_folder, 'poses.txt'), self.calibrations[-1])
+            self.poses.append([pose.astype(np.float32) for pose in poses_f64])
+
+    def parse_calibration(self, filename):
+        """ read calibration file with given filename
+            Returns
+            -------
+            dict
+                Calibration matrices as 4x4 numpy arrays.
+        """
+        calib = {}
+
+        calib_file = open(filename)
+        for line in calib_file:
+            key, content = line.strip().split(":")
+            values = [float(v) for v in content.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            calib[key] = pose
+
+        calib_file.close()
+
+        return calib
+
+    def parse_poses(self, filename, calibration):
+        """ read poses file with per-scan poses from given filename
+            Returns
+            -------
+            list
+                list of poses as 4x4 numpy arrays.
+        """
+        file = open(filename)
+
+        poses = []
+
+        Tr = calibration["Tr"]
+        Tr_inv = np.linalg.inv(Tr)
+
+        for line in file:
+            values = [float(v) for v in line.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            poses.append(np.matmul(Tr_inv, np.matmul(pose, Tr)))
+
+        return poses
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -86,7 +183,7 @@ class SemKITTI(data.Dataset):
             data_tuple += (raw_data[:,3],)
         if self.return_ins:
             data_tuple += (ins_labels, valid)
-        data_tuple += (self.im_idx[index],)
+        data_tuple += (self.im_idx[index], self.poses[self.im_idx_ind[index][0]][self.im_idx_ind[index][1]])
         return data_tuple
 
     def count_ins(self):
@@ -185,11 +282,14 @@ class SemKITTI_tracking(data.Dataset):
         else:
             raise Exception('Split must be train/val/test')
 
+        self.sequences = sorted(split)
+        self.data_path = data_path
         self.im_idx = []
         for i_folder in split:
             self.im_idx += absoluteFilePaths('/'.join([data_path,str(i_folder).zfill(2),'velodyne']))
         self.im_idx.sort()
         self.im_pair = []
+        self.im_pair_ind = []
         self.findNext()
 
         self.things = ['car', 'truck', 'bicycle', 'motorcycle', 'bus', 'person', 'bicyclist', 'motorcyclist']
@@ -198,6 +298,90 @@ class SemKITTI_tracking(data.Dataset):
         for i in sorted(list(semkittiyaml['labels'].keys())):
             if SemKITTI_label_name[semkittiyaml['learning_map'][i]] in self.things:
                 self.things_ids.append(i)
+
+        self.load_calib_poses()
+
+    def load_calib_poses(self):
+        """
+        load calib poses and times.
+        """
+
+        ###########
+        # Load data
+        ###########
+
+        self.calibrations = []
+        self.times = []
+        self.poses = []
+        self.seq2ind = {}
+
+        for i, seq in enumerate(self.sequences):
+            self.seq2ind[str(seq).zfill(2)] = i
+
+            seq_folder = join(self.data_path, str(seq).zfill(2))
+
+            # Read Calib
+            self.calibrations.append(self.parse_calibration(join(seq_folder, "calib.txt")))
+
+            # Read times
+            self.times.append(np.loadtxt(join(seq_folder, 'times.txt'), dtype=np.float32))
+
+            # Read poses
+            poses_f64 = self.parse_poses(join(seq_folder, 'poses.txt'), self.calibrations[-1])
+            self.poses.append([pose.astype(np.float32) for pose in poses_f64])
+
+    def parse_calibration(self, filename):
+        """ read calibration file with given filename
+            Returns
+            -------
+            dict
+                Calibration matrices as 4x4 numpy arrays.
+        """
+        calib = {}
+
+        calib_file = open(filename)
+        for line in calib_file:
+            key, content = line.strip().split(":")
+            values = [float(v) for v in content.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            calib[key] = pose
+
+        calib_file.close()
+
+        return calib
+
+    def parse_poses(self, filename, calibration):
+        """ read poses file with per-scan poses from given filename
+            Returns
+            -------
+            list
+                list of poses as 4x4 numpy arrays.
+        """
+        file = open(filename)
+
+        poses = []
+
+        Tr = calibration["Tr"]
+        Tr_inv = np.linalg.inv(Tr)
+
+        for line in file:
+            values = [float(v) for v in line.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            poses.append(np.matmul(Tr_inv, np.matmul(pose, Tr)))
+
+        return poses
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -210,11 +394,18 @@ class SemKITTI_tracking(data.Dataset):
             frame_id = i.split('/')[-1].split('.')[0]
             assert len(frame_id) == 6
             frame_id = int(frame_id)
+            
+            im_list = [i]
+            seq = frame_path[-3]
+            seq_ind = self.seq2ind[seq]
+            frame_ind = frame_id
+            
             next_frame = str(frame_id + 1).zfill(6) + '.bin'
             frame_path[-1] = next_frame
             next_frame_path = '/'.join(frame_path)
             if os.path.exists(next_frame_path):
                 self.im_pair.append((i, next_frame_path))
+                self.im_pair_ind.append((seq_ind, frame_ind, frame_ind + 1))
 
     def __getitem__(self, index):
         raw_data = np.fromfile(self.im_pair[index][0], dtype=np.float32).reshape((-1, 4))
@@ -243,9 +434,227 @@ class SemKITTI_tracking(data.Dataset):
         if self.return_ins:
             data_tuple += (ins_labels, valid)
             next_data_tuple += (next_ins_labels, next_valid)
-        data_tuple += (self.im_pair[index][0],)
-        next_data_tuple += (self.im_pair[index][1],)
+        data_tuple += (self.im_pair[index][0], self.poses[self.im_pair[index][0]][self.im_pair[index][1]])
+        next_data_tuple += (self.im_pair[index][1], self.poses[self.im_pair[index][0]][self.im_pair[index][2]])
         return (next_data_tuple, data_tuple)
+
+class SemKITTI_multi_frames(data.Dataset):
+    def __init__(self, data_path, imageset = 'train', return_ref = False, return_ins = False, n_frames = 3):
+        self.return_ref = return_ref
+        self.return_ins = return_ins
+        with open("semantic-kitti.yaml", 'r') as stream:
+            semkittiyaml = yaml.safe_load(stream)
+        self.learning_map = semkittiyaml['learning_map']
+        self.imageset = imageset
+        if imageset == 'train':
+            split = semkittiyaml['split']['train']
+        elif imageset == 'val':
+            split = semkittiyaml['split']['valid']
+        elif imageset == 'test':
+            split = semkittiyaml['split']['test']
+        else:
+            raise Exception('Split must be train/val/test')
+
+        self.sequences = sorted(split)
+        self.data_path = data_path
+        self.im_idx = []
+        for i_folder in split:
+            self.im_idx += absoluteFilePaths('/'.join([data_path,str(i_folder).zfill(2),'velodyne']))
+        self.im_idx.sort()
+
+        self.things = ['car', 'truck', 'bicycle', 'motorcycle', 'bus', 'person', 'bicyclist', 'motorcyclist']
+        self.stuff = ['road', 'sidewalk', 'parking', 'other-ground', 'building', 'vegetation', 'trunk', 'terrain', 'fence', 'pole', 'traffic-sign']
+        self.things_ids = []
+        for i in sorted(list(semkittiyaml['labels'].keys())):
+            if SemKITTI_label_name[semkittiyaml['learning_map'][i]] in self.things:
+                self.things_ids.append(i)
+
+        self.load_calib_poses()
+        self.n_frames = n_frames
+
+        self.multi_im_list = []
+        self.multi_im_list_ind = []
+        self.findNFrames()
+
+    def load_calib_poses(self):
+        """
+        load calib poses and times.
+        """
+
+        ###########
+        # Load data
+        ###########
+
+        self.calibrations = []
+        self.times = []
+        self.poses = []
+        self.seq2ind = {}
+
+        for i, seq in enumerate(self.sequences):
+            self.seq2ind[str(seq).zfill(2)] = i
+
+            seq_folder = join(self.data_path, str(seq).zfill(2))
+
+            # Read Calib
+            self.calibrations.append(self.parse_calibration(join(seq_folder, "calib.txt")))
+
+            # Read times
+            self.times.append(np.loadtxt(join(seq_folder, 'times.txt'), dtype=np.float32))
+
+            # Read poses
+            poses_f64 = self.parse_poses(join(seq_folder, 'poses.txt'), self.calibrations[-1])
+            self.poses.append([pose.astype(np.float32) for pose in poses_f64])
+
+    def parse_calibration(self, filename):
+        """ read calibration file with given filename
+            Returns
+            -------
+            dict
+                Calibration matrices as 4x4 numpy arrays.
+        """
+        calib = {}
+
+        calib_file = open(filename)
+        for line in calib_file:
+            key, content = line.strip().split(":")
+            values = [float(v) for v in content.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            calib[key] = pose
+
+        calib_file.close()
+
+        return calib
+
+    def parse_poses(self, filename, calibration):
+        """ read poses file with per-scan poses from given filename
+            Returns
+            -------
+            list
+                list of poses as 4x4 numpy arrays.
+        """
+        file = open(filename)
+
+        poses = []
+
+        Tr = calibration["Tr"]
+        Tr_inv = np.linalg.inv(Tr)
+
+        for line in file:
+            values = [float(v) for v in line.strip().split()]
+
+            pose = np.zeros((4, 4))
+            pose[0, 0:4] = values[0:4]
+            pose[1, 0:4] = values[4:8]
+            pose[2, 0:4] = values[8:12]
+            pose[3, 3] = 1.0
+
+            poses.append(np.matmul(Tr_inv, np.matmul(pose, Tr)))
+
+        file.close()
+
+        return poses
+
+    def findNFrames(self):
+        # looking past self.n_frames frames
+        # if not enough existing self.n_frames frames, then just find as much as possible
+        # e.g. the first frame will only contain one frame
+        for i in self.im_idx:
+            frame_path = i.split('/')
+            frame_id = i.split('/')[-1].split('.')[0]
+            assert len(frame_id) == 6
+            frame_id = int(frame_id)
+
+            im_list = [i]
+            seq = frame_path[-3]
+            seq_ind = self.seq2ind[seq]
+            frame_ind = frame_id
+            im_ind_list = [(seq_ind, frame_ind)]
+
+            for j in range(self.n_frames - 1):
+                if frame_id - j - 1 >= 0:
+                    cur_frame = str(frame_id - j - 1).zfill(6) + '.bin'
+                    frame_path[-1] = cur_frame
+                    cur_frame_path = '/'.join(frame_path)
+                    im_list.append(cur_frame_path)
+
+                    frame_ind -= 1
+                    im_ind_list.append((seq_ind, frame_ind))
+                else:
+                    break
+            self.multi_im_list.append(im_list)
+            self.multi_im_list_ind.append(im_ind_list)
+
+    def __len__(self):
+        return len(self.multi_im_list)
+
+    def __getitem__(self, index):
+        cur_im_list = self.multi_im_list[index]
+        cur_im_ind = self.multi_im_list_ind[index]
+        merged_pts = np.zeros([0, 3], dtype=np.float32)
+        merged_ref = np.zeros([0, 1], dtype=np.float32)
+        merged_sem = np.zeros([0, 1], dtype=np.uint8)
+        merged_ins = np.zeros([0, 1], dtype=np.int32)
+        merged_valid = np.zeros([0, 1], dtype=np.int32)
+        merged_mask = np.zeros([0, 1], dtype=np.uint8)
+        merged_fnames = []
+
+        for i, im in enumerate(cur_im_list):
+            raw_data = np.fromfile(im, dtype=np.float32).reshape((-1, 4))
+            if self.imageset == 'test':
+                annotated_data = np.expand_dims(np.zeros_like(raw_data[:,0],dtype=int),axis=1)
+                sem_labels = annotated_data
+                ins_labels = annotated_data
+                valid = annotated_data
+            else:
+                annotated_data = np.fromfile(im.replace('velodyne','labels')[:-3]+'label', dtype=np.int32).reshape((-1,1))
+                sem_labels = annotated_data & 0xFFFF #delete high 16 digits binary
+                ins_labels = annotated_data
+                valid = np.isin(sem_labels, self.things_ids).reshape(-1) # use 0 to filter out valid indexes is enough
+                sem_labels = np.vectorize(self.learning_map.__getitem__)(sem_labels)
+
+            seq_ind, frame_ind = cur_im_ind[i]
+            cur_pose = self.poses[seq_ind][frame_ind]
+
+            if i == 0:
+                p_origin = np.zeros((1, 4))
+                p_origin[0, 3] = 1
+                pose0 = cur_pose
+                p0 = p_origin.dot(pose0.T)[:, :3]
+                p0 = np.squeeze(p0)
+                points = raw_data[:, :3]
+            else:
+                # to global coor
+                hpoints = np.hstack((raw_data[:, :3], np.ones_like(raw_data[:, :1])))
+                new_points = np.sum(np.expand_dims(hpoints, 2) * cur_pose.T, axis=1)[:, :3]
+                # to first frame coor
+                new_coords = new_points - pose0[:3, 3]
+                new_coords = np.sum(np.expand_dims(new_coords, 2) * pose0[:3, :3], axis=1)
+                points = new_coords
+                
+
+            merged_pts = np.vstack((merged_pts, points))
+            merged_ref = np.vstack((merged_ref, raw_data[:, 3].reshape(-1, 1)))
+            merged_sem = np.vstack((merged_sem, sem_labels))
+            merged_ins = np.vstack((merged_ins, ins_labels))
+            merged_valid = np.vstack((merged_valid, valid.reshape(-1, 1)))
+            merged_mask = np.vstack((merged_mask, np.zeros_like(sem_labels) + i))
+            merged_fnames.append(im)
+
+        return (
+            merged_pts,
+            merged_sem,
+            merged_ref,
+            merged_ins,
+            merged_valid,
+            merged_mask,
+            merged_fnames,
+        )
 
 def absoluteFilePaths(directory):
     for dirpath,_,filenames in os.walk(directory):
@@ -398,7 +807,7 @@ class spherical_dataset(data.Dataset):
             xyz,labels,sig,ins_labels,valid,pcd_fname = data
             if len(sig.shape) == 2: sig = np.squeeze(sig)
         elif len(data) == 7:
-            xyz,labels,sig,ins_labels,valid,pcd_fname,minicluster = data
+            xyz,labels,sig,ins_labels,valid,pcd_fname,pose = data
             if len(sig.shape) == 2: sig = np.squeeze(sig)
         else: raise Exception('Return invalid data tuple')
 
@@ -488,7 +897,7 @@ class spherical_dataset(data.Dataset):
         if len(data) == 7:
             offsets = np.zeros([xyz.shape[0], 3], dtype=np.float32)
             offsets = nb_aggregate_pointwise_center_offset(offsets, xyz, ins_labels, self.center_type)
-            data_tuple += (ins_labels, offsets, valid, xyz, pcd_fname, minicluster) # plus (point-wise instance label, point-wise center offset)
+            data_tuple += (ins_labels, offsets, valid, xyz, pcd_fname, pose) # plus (point-wise instance label, point-wise center offset)
 
         return data_tuple
 
@@ -525,8 +934,8 @@ class spherical_dataset_tracking(data.Dataset):
   def __getitem__(self, index):
         'Generates one sample of data'
         data, before_data = self.point_cloud_dataset[index]
-        xyz, labels, sig, ins_labels, valid, pcd_fname = data
-        before_xyz, before_labels, before_sig, before_ins_labels, before_valid, before_pcd_fname = before_data
+        xyz, labels, sig, ins_labels, valid, pcd_fname, pose = data
+        before_xyz, before_labels, before_sig, before_ins_labels, before_valid, before_pcd_fname, before_pose = before_data
         if len(sig.shape) == 2: sig = np.squeeze(sig)
         if len(before_sig.shape) == 2: before_sig = np.squeeze(before_sig)
 
@@ -563,12 +972,12 @@ class spherical_dataset_tracking(data.Dataset):
             # xyz[:, 0:3] += noise_translate
             aug_info['noise_translate'] = noise_translate
 
-        data_tuple = self.process_one_frame(xyz, labels, sig, ins_labels, valid, pcd_fname, aug_info)
-        before_data_tuple = self.process_one_frame(before_xyz, before_labels, before_sig, before_ins_labels, before_valid, before_pcd_fname, aug_info)
+        data_tuple = self.process_one_frame(xyz, labels, sig, ins_labels, valid, pcd_fname, aug_info, pose)
+        before_data_tuple = self.process_one_frame(before_xyz, before_labels, before_sig, before_ins_labels, before_valid, before_pcd_fname, aug_info, before_pose)
 
         return data_tuple + before_data_tuple
 
-  def process_one_frame(self, xyz, labels, sig, ins_labels, valid, pcd_fname, aug_info):
+  def process_one_frame(self, xyz, labels, sig, ins_labels, valid, pcd_fname, aug_info, pose):
         # random data augmentation by rotation
         if self.rotate_aug:
             xyz[:,:2] = np.dot(xyz[:,:2], aug_info['j'])
@@ -633,7 +1042,128 @@ class spherical_dataset_tracking(data.Dataset):
         data_tuple += (grid_ind,labels,return_fea) # (grid-wise coor, grid-wise sem label, point-wise grid index, point-wise sem label, [relative polar coor(3), polar coor(3), cat coor(2), ref signal(1)])
         offsets = np.zeros([xyz.shape[0], 3], dtype=np.float32)
         offsets = nb_aggregate_pointwise_center_offset(offsets, xyz, ins_labels, self.center_type)
-        data_tuple += (ins_labels, offsets, valid, xyz, pcd_fname) # plus (point-wise instance label, point-wise center offset)
+        data_tuple += (ins_labels, offsets, valid, xyz, pcd_fname, pose) # plus (point-wise instance label, point-wise center offset)
+
+        return data_tuple
+
+class spherical_dataset_multi_frames(data.Dataset):
+  def __init__(self, in_dataset, grid_size, rotate_aug = False, flip_aug = False,
+               scale_aug =False, transform_aug=False, trans_std=[0.1, 0.1, 0.1],
+               min_rad=-np.pi/4, max_rad=np.pi/4, ignore_label = 255,
+               return_test = False, fixed_volume_space= False,
+               max_volume_space = [50,np.pi,1.5], min_volume_space = [3,-np.pi,-3],
+               center_type='Axis_center'):
+        'Initialization'
+        self.point_cloud_dataset = in_dataset
+        self.grid_size = np.asarray(grid_size)
+        self.rotate_aug = rotate_aug
+        self.flip_aug = flip_aug
+        self.ignore_label = ignore_label
+        self.return_test = return_test
+        self.fixed_volume_space = fixed_volume_space
+        self.max_volume_space = max_volume_space
+        self.min_volume_space = min_volume_space
+
+        self.scale_aug = scale_aug
+        self.transform = transform_aug
+        self.trans_std = trans_std
+        self.noise_rotation = np.random.uniform(min_rad, max_rad)
+
+        assert center_type in ['Axis_center', 'Mass_center']
+        self.center_type = center_type
+
+  def __len__(self):
+        'Denotes the total number of samples'
+        return len(self.point_cloud_dataset)
+
+  def __getitem__(self, index):
+        'Generates one sample of data'
+        data = self.point_cloud_dataset[index]
+        assert len(data) == 7
+        xyz,labels,sig,ins_labels,valid,mask,pcd_fname = data
+        if len(sig.shape) == 2: sig = np.squeeze(sig)
+
+        # random data augmentation by rotation
+        if self.rotate_aug:
+            rotate_rad = np.deg2rad(np.random.random()*360)
+            c, s = np.cos(rotate_rad), np.sin(rotate_rad)
+            j = np.matrix([[c, s], [-s, c]])
+            xyz[:,:2] = np.dot( xyz[:,:2],j)
+
+        # random data augmentation by flip x , y or x+y
+        if self.flip_aug:
+            flip_type = np.random.choice(4,1)
+            if flip_type==1:
+                xyz[:,0] = -xyz[:,0]
+            elif flip_type==2:
+                xyz[:,1] = -xyz[:,1]
+            elif flip_type==3:
+                xyz[:,:2] = -xyz[:,:2]
+
+        if self.scale_aug:
+            noise_scale = np.random.uniform(0.95, 1.05)
+            xyz[:,0] = noise_scale * xyz[:,0]
+            xyz[:,1] = noise_scale * xyz[:,1]
+
+        if self.transform:
+            noise_translate = np.array([np.random.normal(0, self.trans_std[0], 1),
+                                np.random.normal(0, self.trans_std[1], 1),
+                                np.random.normal(0, self.trans_std[2], 1)]).T
+            xyz[:, 0:3] += noise_translate
+
+        # convert coordinate into polar coordinates
+        xyz_pol = cart2polar(xyz)
+
+        max_bound_r = np.percentile(xyz_pol[:,0],100,axis = 0)
+        min_bound_r = np.percentile(xyz_pol[:,0],0,axis = 0)
+        max_bound = np.max(xyz_pol[:,1:],axis = 0)
+        min_bound = np.min(xyz_pol[:,1:],axis = 0)
+        max_bound = np.concatenate(([max_bound_r],max_bound))
+        min_bound = np.concatenate(([min_bound_r],min_bound))
+        if self.fixed_volume_space:
+            max_bound = np.asarray(self.max_volume_space)
+            min_bound = np.asarray(self.min_volume_space)
+
+        # get grid index
+        crop_range = max_bound - min_bound
+        cur_grid_size = self.grid_size
+        intervals = crop_range/(cur_grid_size-1) # (size-1) could directly get index starting from 0, very convenient
+
+        if (intervals==0).any(): print("Zero interval!")
+        grid_ind = (np.floor((np.clip(xyz_pol,min_bound,max_bound)-min_bound)/intervals)).astype(np.int) # point-wise grid index
+
+        # process voxel position
+        voxel_position = np.zeros(self.grid_size,dtype = np.float32)
+        dim_array = np.ones(len(self.grid_size)+1,int)
+        dim_array[0] = -1
+        voxel_position = np.indices(self.grid_size)*intervals.reshape(dim_array) + min_bound.reshape(dim_array)
+        voxel_position = polar2cat(voxel_position)
+
+        # process labels
+        processed_label = np.ones(self.grid_size,dtype = np.uint8)*self.ignore_label
+        label_voxel_pair = np.concatenate([grid_ind,labels],axis = 1)
+        label_voxel_pair = label_voxel_pair[np.lexsort((grid_ind[:,0],grid_ind[:,1],grid_ind[:,2])),:]
+        processed_label = nb_process_label(np.copy(processed_label),label_voxel_pair)
+        data_tuple = (voxel_position,processed_label)
+
+        # center data on each voxel for PTnet
+        voxel_centers = (grid_ind.astype(np.float32) + 0.5)*intervals + min_bound
+        return_xyz = xyz_pol - voxel_centers
+        return_xyz = np.concatenate((return_xyz,xyz_pol,xyz[:,:2]),axis = 1)
+
+        if len(data) == 2:
+            return_fea = return_xyz
+        elif len(data) >= 3:
+            return_fea = np.concatenate((return_xyz,sig[...,np.newaxis]),axis = 1)
+
+        if self.return_test:
+            data_tuple += (grid_ind,labels,return_fea,index)
+        else:
+            data_tuple += (grid_ind,labels,return_fea) # (grid-wise coor, grid-wise sem label, point-wise grid index, point-wise sem label, [relative polar coor(3), polar coor(3), cat coor(2), ref signal(1)])
+
+        offsets = np.zeros([xyz.shape[0], 3], dtype=np.float32)
+        offsets = nb_aggregate_pointwise_center_offset(offsets, xyz, ins_labels, self.center_type)
+        data_tuple += (ins_labels, offsets, valid, xyz, mask, pcd_fname) # plus (point-wise instance label, point-wise center offset)
 
         return data_tuple
 
@@ -706,7 +1236,38 @@ def collate_fn_BEV(data): # stack alone batch dimension
         'pt_offsets': pt_offsets,
         'pt_valid': pt_valid,
         'pt_cart_xyz': pt_cart_xyz,
-        'pcd_fname': [d[9] for d in data]
+        'pcd_fname': [d[9] for d in data],
+        'pose': [d[10] for d in data] if len(data[0]) > 10 else None,
+    }
+
+def collate_fn_BEV_multi_frames(data): # stack alone batch dimension
+    data2stack=np.stack([d[0] for d in data]).astype(np.float32) # grid-wise coor
+    label2stack=np.stack([d[1] for d in data])                   # grid-wise sem label
+    grid_ind_stack = [d[2] for d in data]                        # point-wise grid index
+    point_label = [d[3] for d in data]                           # point-wise sem label
+    xyz = [d[4] for d in data]                                   # point-wise coor
+
+    pt_ins_labels = [d[5] for d in data]                         # point-wise instance label
+    pt_offsets = [d[6] for d in data]                            # point-wise center offset
+    pt_valid = [d[7] for d in data]                              # point-wise indicator for foreground points
+    pt_cart_xyz = [d[8] for d in data]                           # point-wise cart coor
+
+    mask = np.stack([d[9] for d in data]).astype(np.uint8)
+
+    return {
+        'vox_coor': torch.from_numpy(data2stack),
+        'vox_label': torch.from_numpy(label2stack),
+        'grid': grid_ind_stack,
+        'pt_labs': point_label,
+        'pt_fea': xyz,
+        'pt_ins_labels': pt_ins_labels,
+        'pt_offsets': pt_offsets,
+        'pt_valid': pt_valid,
+        'pt_cart_xyz': pt_cart_xyz,
+        'pcd_fname': [d[10][0] for d in data],
+        'pcd_list_fname': [d[10] for d in data],
+        'mask': torch.from_numpy(mask),
+        'mask_np': mask,
     }
 
 def collate_fn_BEV_test(data):
@@ -719,8 +1280,8 @@ def collate_fn_BEV_test(data):
     return torch.from_numpy(data2stack),torch.from_numpy(label2stack),grid_ind_stack,point_label,xyz,index
 
 def collate_fn_BEV_tracking(_data): # stack alone batch dimension
-    data = [d[:10] for d in _data]
-    before_data = [d[10:] for d in _data]
+    data = [d[:11] for d in _data]
+    before_data = [d[11:] for d in _data]
     data_dict = collate_fn_BEV(data)
     before_data_dict = collate_fn_BEV(before_data)
     for k, v in before_data_dict.items():
