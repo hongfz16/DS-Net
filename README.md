@@ -7,14 +7,14 @@ This repository provides the official implementation for the following two paper
 
 <p>
 <div><strong>LiDAR-based Panoptic Segmentation via Dynamic Shifting Network</strong></div>
-<div>Fangzhou Hong, Hui Zhou, Xinge Zhu, Hongsheng Li, Ziwei Liu</div>
+<div><a href="https://hongfz16.github.io/">Fangzhou Hong</a>, Hui Zhou, Xinge Zhu, <a href="https://www.ee.cuhk.edu.hk/~hsli/">Hongsheng Li</a>, <a href="https://liuziwei7.github.io/">Ziwei Liu</a></div>
 <div>Accepted to <strong>CVPR 2021</strong></div>
 <div><a href="https://arxiv.org/abs/2011.11964"> arXiv </a> | <a href="https://openaccess.thecvf.com/content/CVPR2021/papers/Hong_LiDAR-Based_Panoptic_Segmentation_via_Dynamic_Shifting_Network_CVPR_2021_paper.pdf">CVF Open Access</a><div>
 </p>
 
 <p>
 <div><strong>LiDAR-based 4D Panoptic Segmentation via Dynamic Shifting Network</strong></div>
-<div>Fangzhou Hong, Hui Zhou, Xinge Zhu, Hongsheng Li, Ziwei Liu</div>
+<div><a href="https://hongfz16.github.io/">Fangzhou Hong</a>, Hui Zhou, Xinge Zhu, <a href="https://www.ee.cuhk.edu.hk/~hsli/">Hongsheng Li</a>, <a href="https://liuziwei7.github.io/">Ziwei Liu</a></div>
 <div>arXiv Preprint, 2022</div>
 <div><a href="https://arxiv.org/abs/2203.07186"> arXiv </a>
 </p>
