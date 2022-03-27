@@ -1,24 +1,33 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/lidar-based-panoptic-segmentation-via-dynamic/panoptic-segmentation-on-semantickitti)](https://paperswithcode.com/sota/panoptic-segmentation-on-semantickitti?p=lidar-based-panoptic-segmentation-via-dynamic)
 
 # LiDAR-based Panoptic Segmentation via Dynamic Shifting Network
-[[pdf]](https://openaccess.thecvf.com/content/CVPR2021/papers/Hong_LiDAR-Based_Panoptic_Segmentation_via_Dynamic_Shifting_Network_CVPR_2021_paper.pdf)
-
-<!-- ## Hiring Information
-The SenseTime-LidarSegmentation is now hiring. If you are interested in internship, researcher and software engineer positions related to lidar segmentation or deep learning, please send me an email: [zhouhui@sensetime.com](mailto:zhouhui@sensetime.com). -->
-
-## Overview
-This repository contains the author's implementation of the work "[LiDAR-based Panoptic Segmentation via Dynamic Shifting Network](https://arxiv.org/abs/2011.11964)".
-
 ![teaser](./imgs/teaser.png)
+
+This repository provides the official implementation for the following two papers:
+
+<p>
+<div><strong>LiDAR-based Panoptic Segmentation via Dynamic Shifting Network</strong></div>
+<div>Fangzhou Hong, Hui Zhou, Xinge Zhu, Hongsheng Li, Ziwei Liu</div>
+<div>Accepted to <strong>CVPR 2021</strong></div>
+<div><a href="https://arxiv.org/abs/2011.11964"> arXiv </a> | <a href="https://openaccess.thecvf.com/content/CVPR2021/papers/Hong_LiDAR-Based_Panoptic_Segmentation_via_Dynamic_Shifting_Network_CVPR_2021_paper.pdf">CVF Open Access</a><div>
+</p>
+
+<p>
+<div><strong>LiDAR-based 4D Panoptic Segmentation via Dynamic Shifting Network</strong></div>
+<div>Fangzhou Hong, Hui Zhou, Xinge Zhu, Hongsheng Li, Ziwei Liu</div>
+<div>arXiv Preprint, 2022</div>
+<div><a href="https://arxiv.org/abs/2203.07186"> arXiv </a>
+</p>
 
 For further information, please contact [Fangzhou Hong](mailto:fangzhouhong820@gmail.com).
 
 ## News
-- **2021-03 [NEW:partying_face:]** DS-Net is accepted to CVPR 2021!
+- **2022-03 [NEW:partying_face:]** Checkout our new extention [4D-DS-Net](https://arxiv.org/abs/2203.07186)! Codes are released. Checkout the instructions [here](#4d-ds-net-training-from-scratch).
+- **2021-03** DS-Net is accepted to CVPR 2021!
 - **2020-12-01** Code release!
-- **2020-11-16** We achieve 1st place in [SemanticKITTI Panoptic Segmentation leaderboard](https://competitions.codalab.org/competitions/24025#results).
+- **2020-11-16** We achieve 1st place in [SemanticKITTI Panoptic Segmentation leaderboard](https://competitions.codalab.org/competitions/24025#results). See the [screenshot](./imgs/colab-2020-11-16.png).
 
-![colab](./imgs/colab-2020-11-16.png)
+<!-- ![colab](./imgs/colab-2020-11-16.png) -->
 
 ## Requirements
 - easydict
@@ -85,7 +94,7 @@ The inferencing scripts of our backbone are `./scripts/release/backbone/val_*.sh
 #### DS-Net
 The inferencing scripts of our DS-Net are in `./scripts/release/dsnet`. `val_*.sh` are for inferencing on the validation set of SemanticKITTI. `test_*.sh` are for inferencing on the test set of SemanticKITTI and will generate prediction files under the corresponding output folder. Before using the scripts, remember to download the pretrained model (of step 3) or put the model trained by yourself (in step 3) to `./pretrained_weight` and make sure you pass the right path to `--pretrained_ckpt` option in the scripts.
 
-### Training from Scratch
+### DS-Net: Training from Scratch
 #### 1. Semantic segmentation training
 The training codes and scripts for this step will be released soon. For now, please download the step 1 pretrained model using the above link. Please note that the cylinder backbone used in our implementation is the original version of [Cylinder3D](https://arxiv.org/abs/2008.01550) instead of the [latest version](https://arxiv.org/abs/2011.10033).
 
@@ -94,6 +103,13 @@ The training scripts of this step could be found in `./scripts/release/backbone/
 
 #### 3. Dynamic shifting training
 The training scripts of step 3 could be found in `./scripts/release/dsnet/train_*.sh`. Before using the training scripts of this part, please download the pretrained model (of step 2) to folder `./pretrained_weight` or put the model trained (in step 2) to `./pretrained_weight` and change the `--pretrained_ckpt` option to the correct path. You could experiment with different parameter settings in `./cfgs/release/dsnet.yaml`.
+
+### 4D-DS-Net: Training from Scratch
+#### 1. Backbone finetune
+Please checkout `./scripts/release/4d-dsnet/train_backbone_multi_frames_2.sh`.
+
+#### 2. 4D dynamic shifting training
+Please checkout `./scripts/release/4d-dsnet/train_dsnet_multi_frames_2.sh`.
 
 ## License
 
@@ -111,6 +127,13 @@ If you find our work useful in your research, please consider citing the followi
     month     = {June},
     year      = {2021},
     pages     = {13090-13099}
+}
+
+@article{zhan2022ray3d,
+  title={LiDAR-based 4D Panoptic Segmentation via Dynamic Shifting Network},
+  author={Hong, Fangzhou and Zhou, Hui and Zhu, Xinge and Li, Hongsheng and Liu, Ziwei},
+  journal={arXiv preprint arXiv:2203.07186},
+  year={2022}
 }
 ```
 
