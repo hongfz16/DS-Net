@@ -22,7 +22,7 @@ This repository provides the official implementation for the following two paper
 For further information, please contact [Fangzhou Hong](mailto:fangzhouhong820@gmail.com).
 
 ## News
-- **2022-03 [NEW:partying_face:]** Checkout our new extention [4D-DS-Net](https://arxiv.org/abs/2203.07186)! Codes are released. Checkout the instructions [here](#4d-ds-net-training-from-scratch).
+- **2022-03 [NEW:partying_face:]** Checkout our new extention [4D-DS-Net](https://arxiv.org/abs/2203.07186) for [4D panoptic segmentation](http://semantic-kitti.org/tasks.html#panseg4d)! Codes are released. Checkout the instructions [here](#4d-ds-net-training-from-scratch).
 - **2021-03** DS-Net is accepted to CVPR 2021!
 - **2020-12-01** Code release!
 - **2020-11-16** We achieve 1st place in [SemanticKITTI Panoptic Segmentation leaderboard](https://competitions.codalab.org/competitions/24025#results). See the [screenshot](./imgs/colab-2020-11-16.png).
