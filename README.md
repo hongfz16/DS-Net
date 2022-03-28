@@ -129,7 +129,7 @@ If you find our work useful in your research, please consider citing the followi
     pages     = {13090-13099}
 }
 
-@article{zhan2022ray3d,
+@article{hong20224ddsnet,
   title={LiDAR-based 4D Panoptic Segmentation via Dynamic Shifting Network},
   author={Hong, Fangzhou and Zhou, Hui and Zhu, Xinge and Li, Hongsheng and Liu, Ziwei},
   journal={arXiv preprint arXiv:2203.07186},
