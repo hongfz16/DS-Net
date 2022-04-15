@@ -22,6 +22,7 @@ This repository provides the official implementation for the following two paper
 For further information, please contact [Fangzhou Hong](mailto:fangzhouhong820@gmail.com).
 
 ## News
+- **2022-04** Uploaded the pre-train model for 4D-DS-Net [here](#4d-ds-net).
 - **2022-03 [NEW:partying_face:]** Checkout our new extention [4D-DS-Net](https://arxiv.org/abs/2203.07186) for [4D panoptic segmentation](http://semantic-kitti.org/tasks.html#panseg4d)! Codes are released. Checkout the instructions [here](#4d-ds-net-training-from-scratch).
 - **2021-03** DS-Net is accepted to CVPR 2021!
 - **2020-12-01** Code release!
@@ -76,12 +77,17 @@ The training pipeline of our DS-Net consists of three steps: 1) semantic segment
 Note that our implementation only supports parallel training for now. We fix the batch size of each GPUs to `1`. In the first line of each script, you could choose the number of GPUs `${ngpu}` you wish to use for training or inferencing. In the second line, you could set the folder name `${tag}` and all the generated files will be put into `./output/${tag}`. All the provided pytorch distributed version of scripts are not tested due to the lack of proper environment. All the slurm version of scripts are tested and should work well. Should there be any problem, feel free to open an issue.
 
 ### Pretrained Models
+
+#### DS-Net	
 If you wish to use our pretrained models, remember to create a new folder `pretrained_weight` and put all the downloaded models there.
 | Step | Download Link                                                |
 | ---- | ------------------------------------------------------------ |
 | 1    | [sem_pretrain.pth](https://drive.google.com/file/d/1cGieEmsRhVD2YR3CH7TOj5H3y-4WG96q/view?usp=sharing) |
 | 2    | [offset_pretrain_pq_0.564.pth](https://drive.google.com/file/d/1pimhJ8iKR518I7g7xLKOB4lLYjQ0Doyp/view?usp=sharing) |
 | 3    | [dsnet_pretrain_pq_0.577.pth](https://drive.google.com/file/d/1BZTEZOUfoYvobppuOgO6DC_Hp_c6YytJ/view?usp=sharing) |
+	
+#### 4D-DS-Net
+This is the trained final model. Download Link: [checkpoint_epoch_5_0.640_0.594_0.648.pth](https://1drv.ms/u/s!AjLpFg-f48ljgZYCoEitdra7eoUwMQ?e=cCRRH2).
 
 ### Inferencing with the Pretrained Models
 We provide inferencing scripts for the backbone and our DS-Net.
@@ -105,6 +111,7 @@ The training scripts of this step could be found in `./scripts/release/backbone/
 The training scripts of step 3 could be found in `./scripts/release/dsnet/train_*.sh`. Before using the training scripts of this part, please download the pretrained model (of step 2) to folder `./pretrained_weight` or put the model trained (in step 2) to `./pretrained_weight` and change the `--pretrained_ckpt` option to the correct path. You could experiment with different parameter settings in `./cfgs/release/dsnet.yaml`.
 
 ### 4D-DS-Net: Training from Scratch
+For the trained models, checkout [here](#4d-ds-net).
 #### 1. Backbone finetune
 Please checkout `./scripts/release/4d-dsnet/train_backbone_multi_frames_2.sh`.
 
